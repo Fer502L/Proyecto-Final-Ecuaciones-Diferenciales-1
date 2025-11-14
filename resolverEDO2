@@ -1,0 +1,154 @@
+% =========================================================================
+% FUNCIÓN PARA RESOLVER EDO DE SEGUNDO ORDEN
+% =========================================================================
+% DESCRIPCIÓN:
+% Esta función resuelve una Ecuación Diferencial Ordinaria (EDO) de segundo
+% orden del tipo y'' = f(x, y, y'). El enfoque clave es convertir la EDO de
+% segundo orden en un sistema de dos EDOs de primer orden acopladas.
+%
+% Proceso de Reducción de Orden:
+% 1. Se definen dos nuevas variables:
+%    z1 = y
+%    z2 = y'
+% 2. Se derivan estas variables para obtener el sistema:
+%    z1' = y' = z2
+%    z2' = y'' = f(x, z1, z2)
+%
+% Este sistema vectorial Z' = F(x, Z), donde Z = [z1; z2], se puede resolver
+% con los mismos métodos numéricos (Heun, RK4) adaptados para operaciones
+- % vectoriales. La función también realiza un análisis de convergencia y
+% visualiza la solución para y(x).
+%
+% PARÁMETROS DE ENTRADA: Ninguno.
+% PARÁMETROS DE SALIDA: Ninguno (genera tabla y figura).
+% =========================================================================
+function resolverEDO2()
+    % --- 1. DEFINICIÓN DEL PROBLEMA Y REDUCCIÓN DE ORDEN ---
+    % Ecuación Original: y'' = 8*sin(x) - 4*y
+    % Aplicando la reducción de orden con z1=y, z2=y':
+    % Sistema Equivalente:
+    %   z1' = z2
+    %   z2' = 8*sin(x) - 4*z1
+    % Se define F(x,z) como una función que devuelve un vector columna [z1'; z2'].
+    F = @(x, z) [z(2); 8*sin(x) - 4*z(1)];
+
+    % Solución analítica para la variable y(x) = z1(x), usada para la validación.
+    y_analitica_func = @(x) 2*cos(2*x) + (8/3)*sin(x);
+
+    % Intervalo de integración [a, b]. Se eligen dos periodos (4*pi) para
+    % observar claramente el comportamiento oscilatorio de la solución.
+    a = 0;
+    b = 4*pi; 
+    
+    % Condiciones iniciales en formato vectorial z(0) = [y(0); y'(0)].
+    % y(0) = 2*cos(0) + (8/3)*sin(0) = 2
+    % y'(0) = -4*sin(0) + (8/3)*cos(0) = 8/3
+    z0 = [2; 8/3];
+
+    % --- 2. ANÁLISIS DE CONVERGENCIA ---
+    pasos_n = [20, 50, 100, 200, 500]; % Diferentes densidades de malla.
+    resultados = zeros(length(pasos_n), 5); % Pre-alocación de memoria.
+
+    fprintf('====================================================\n');
+    fprintf('  ANÁLISIS DE CONVERGENCIA PARA EDO DE SEGUNDO ORDEN\n');
+    fprintf('====================================================\n');
+
+    % Bucle principal que itera sobre los diferentes números de pasos.
+    for k = 1:length(pasos_n)
+        n = pasos_n(k);
+        h = (b - a) / n;
+        x = a:h:b;
+
+        % Inicialización de matrices de solución.
+        % Ahora, z_heun y z_rk4 son matrices de 2x(n+1), donde:
+        % - La fila 1 almacenará la solución para y(x) (z1).
+        % - La fila 2 almacenará la solución para y'(x) (z2).
+        z_heun = zeros(2, n+1);
+        z_rk4 = zeros(2, n+1);
+        z_heun(:, 1) = z0; % La primera columna es el vector de condición inicial.
+        z_rk4(:, 1) = z0;
+
+        % --- 2.1. Método de Heun para Sistemas ---
+        % La lógica es idéntica al caso escalar, pero las operaciones (suma,
+        % multiplicación por escalar h) se aplican a vectores.
+        for i = 1:n
+            % k1 es ahora un vector [2x1] con las pendientes de z1 y z2.
+            k1 = F(x(i), z_heun(:, i));
+            % z_pred es el vector predicho en el siguiente paso.
+            z_pred = z_heun(:, i) + h * k1;
+            % k2 es el vector de pendientes en el punto final predicho.
+            k2 = F(x(i+1), z_pred);
+            % La corrección promedia los vectores de pendientes k1 y k2.
+            z_heun(:, i+1) = z_heun(:, i) + (h/2) * (k1 + k2);
+        end
+
+        % --- 2.2. Método RK4 para Sistemas ---
+        % Similarmente, k1, k2, k3, k4 son todos vectores [2x1].
+        % La fórmula final es un promedio ponderado de estos vectores de pendientes.
+        for i = 1:n
+            k1 = F(x(i), z_rk4(:, i));
+            k2 = F(x(i) + h/2, z_rk4(:, i) + (h/2)*k1);
+            k3 = F(x(i) + h/2, z_rk4(:, i) + (h/2)*k2);
+            k4 = F(x(i) + h, z_rk4(:, i) + h*k3);
+            z_rk4(:, i+1) = z_rk4(:, i) + (h/6) * (k1 + 2*k2 + 2*k3 + k4);
+        end
+
+        % --- 2.3. Almacenamiento y Cálculo de Errores ---
+        % Para el análisis, nos centramos en el error de y(x), que es el primer
+        % componente del sistema (fila 1 de la matriz de solución).
+        y_analitica_final = y_analitica_func(b);
+        y_heun_final = z_heun(1, end); % Valor final de y(x) de Heun.
+        y_rk4_final = z_rk4(1, end);   % Valor final de y(x) de RK4.
+        
+        error_heun = abs(y_analitica_final - y_heun_final);
+        error_rk4 = abs(y_analitica_final - y_rk4_final);
+        
+        resultados(k, :) = [h, y_heun_final, error_heun, y_rk4_final, error_rk4];
+    end
+    
+    % --- 3. PRESENTACIÓN DE LA TABLA DE RESULTADOS ---
+    fprintf('Valor Analítico de y(x) en x=%.4f: %.6f\n\n', b, y_analitica_func(b));
+    fprintf('%-12s %-18s %-18s %-18s %-18s\n', ...
+            'Paso (h)', 'Heun Final', 'Error Abs (Heun)', 'RK4 Final', 'Error Abs (RK4)');
+    fprintf([repmat('-', 1, 85) '\n']);
+    for k = 1:length(pasos_n)
+        fprintf('%-12.6f %-18.6f %-18.6e %-18.6f %-18.6e\n', ...
+                resultados(k, 1), resultados(k, 2), resultados(k, 3), ...
+                resultados(k, 4), resultados(k, 5));
+    end
+
+    % --- 4. VISUALIZACIÓN DE RESULTADOS ---
+    % Se grafica la solución para y(x) usando los resultados de la última
+    % iteración (n=500), que es la más precisa.
+    y_analitica = y_analitica_func(x); % 'x' es del último bucle.
+
+    figure('Name', 'Soluciones para EDO de Segundo Orden', 'NumberTitle', 'off');
+    sgtitle('Comparación de Soluciones para y'''' = 8*sin(x) - 4*y');
+
+    % Subgráfico 1: Solución y(x) con Método de Heun
+    subplot(3, 1, 1);
+    % Se extrae la primera fila (z1 = y) de la matriz de soluciones de Heun.
+    plot(x, z_heun(1,:), 'b--o', 'MarkerSize', 3, 'LineWidth', 1.5);
+    title(['Solución y(x) con Método de Heun (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(x)');
+    grid on;
+    legend('Heun', 'Location', 'northwest');
+
+    % Subgráfico 2: Solución y(x) con Método RK4
+    subplot(3, 1, 2);
+    % Se extrae la primera fila (z1 = y) de la matriz de soluciones de RK4.
+    plot(x, z_rk4(1,:), 'r--s', 'MarkerSize', 3, 'LineWidth', 1.5);
+    title(['Solución y(x) con Método RK4 (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(x)');
+    grid on;
+    legend('RK4', 'Location', 'northwest');
+
+    % Subgráfico 3: Solución Analítica de y(x)
+    subplot(3, 1, 3);
+    plot(x, y_analitica, 'g-', 'LineWidth', 2);
+    title('Solución Analítica Exacta para y(x)');
+    xlabel('x');
+    ylabel('y(x)');
+    grid on;
+    legend('Analítica', 'Location', 'northwest');
+end
