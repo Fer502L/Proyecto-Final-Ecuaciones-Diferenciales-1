@@ -1,0 +1,129 @@
+% =========================================================================
+% FUNCIÓN PARA RESOLVER EL MODELO PRESA-DEPREDADOR (LOTKA-VOLTERRA)
+% =========================================================================
+% DESCRIPCIÓN:
+% Este script resuelve el sistema de ecuaciones diferenciales no lineales
+% de Lotka-Volterra, un modelo fundamental en ecología para describir la
+% dinámica de las poblaciones de presas y depredadores.
+%
+% El sistema es NO LINEAL debido a los términos de interacción (x*y), lo que
+% implica que, en general, no tiene una solución analítica cerrada. Por lo
+% tanto, el análisis no se centra en el cálculo de errores contra una
+% solución exacta, sino en la visualización y comparación de la dinámica
+% del sistema, utilizando dos herramientas clave:
+%   1. Gráfico de Poblaciones vs. Tiempo: Muestra las oscilaciones
+%      cíclicas de las especies.
+%   2. Diagrama de Fase: Representa la trayectoria del sistema en el espacio
+%      de estados (presas vs. depredadores), revelando la naturaleza
+%      cíclica y la estabilidad de la interacción.
+%
+% PARÁMETROS DE ENTRADA: Ninguno.
+% PARÁMETROS DE SALIDA: Ninguno (genera salida en consola y una figura).
+% =========================================================================
+
+function resolverLotkaVolterra()
+    % --- 1. INICIALIZACIÓN DEL ENTORNO ---
+    clc;
+    close all; % Cierra figuras previas para evitar superposiciones.
+
+    % --- 2. DEFINICIÓN DEL MODELO MATEMÁTICO ---
+    % Ecuaciones del sistema de Lotka-Volterra:
+    % dx/dt = alpha*x - beta*x*y  (Crecimiento de presas, X(1))
+    % dy/dt = delta*x*y - gamma*y (Crecimiento de depredadores, X(2))
+    % Donde:
+    %   X(1) es la población de presas.
+    %   X(2) es la población de depredadores.
+    %   El término 'X(1)*X(2)' representa la interacción entre especies y es
+    %   lo que hace que el sistema sea no lineal.
+    F = @(t, X) [ 1.1*X(1) - 0.4*X(1)*X(2); ...  % Ecuación para las presas
+                  0.1*X(1)*X(2) - 0.4*X(2) ];    % Ecuación para los depredadores
+
+    % Definición de los parámetros de la simulación.
+    t0 = 0;
+    tf = 100;     % Se elige un tiempo final largo para poder observar múltiples ciclos de oscilación.
+    X0 = [20; 5]; % Vector de condiciones iniciales: [presas iniciales; depredadores iniciales].
+
+    % Parámetros del método numérico.
+    % Como no se realiza un análisis de convergencia, se elige un número de
+    % pasos 'n' suficientemente grande para asegurar una solución precisa y suave.
+    n = 5000;
+    h = (tf - t0) / n; % Tamaño de paso pequeño para estabilidad y precisión.
+    t = t0:h:tf;
+
+    % --- 3. IMPLEMENTACIÓN DE LOS MÉTODOS NUMÉRICOS ---
+    % Pre-alocación de matrices para almacenar la trayectoria de las poblaciones.
+    X_heun = zeros(2, n+1);
+    X_rk4 = zeros(2, n+1);
+    X_heun(:, 1) = X0;
+    X_rk4(:, 1) = X0;
+
+    % Implementación del Método de Heun para el sistema.
+    % El algoritmo es idéntico al de sistemas lineales, demostrando su
+    % aplicabilidad a problemas no lineales.
+    for i = 1:n
+        k1 = F(t(i), X_heun(:, i));
+        X_pred = X_heun(:, i) + h * k1;
+        k2 = F(t(i+1), X_pred);
+        X_heun(:, i+1) = X_heun(:, i) + (h/2) * (k1 + k2);
+    end
+
+    % Implementación del Método de Runge-Kutta de 4to orden (RK4).
+    for i = 1:n
+        k1 = F(t(i), X_rk4(:, i));
+        k2 = F(t(i) + h/2, X_rk4(:, i) + (h/2)*k1);
+        k3 = F(t(i) + h/2, X_rk4(:, i) + (h/2)*k2);
+        k4 = F(t(i) + h, X_rk4(:, i) + h*k3);
+        X_rk4(:, i+1) = X_rk4(:, i) + (h/6) * (k1 + 2*k2 + 2*k3 + k4);
+    end
+    
+    % --- 4. PRESENTACIÓN DE RESULTADOS EN CONSOLA ---
+    fprintf('====================================================\n');
+    fprintf('  ANÁLISIS PARA SISTEMA NO LINEAL (LOTKA-VOLTERRA)\n');
+    fprintf('====================================================\n');
+    fprintf('NOTA: No existe solución analítica para calcular el error.\n');
+    fprintf('El análisis se basa en la comparación cualitativa de las trayectorias.\n\n');
+    fprintf('Población final (Heun) en t=%.1f: Presas=%.4f, Depredadores=%.4f\n', ...
+            tf, X_heun(1,end), X_heun(2,end));
+    fprintf('Población final (RK4)  en t=%.1f: Presas=%.4f, Depredadores=%.4f\n', ...
+            tf, X_rk4(1,end), X_rk4(2,end));
+
+
+    % --- 5. VISUALIZACIÓN GRÁFICA DE LA DINÁMICA ---
+    % Se generan dos gráficos clave para entender el comportamiento del sistema.
+    
+    figure('Name', 'Modelo Presa-Depredador (Lotka-Volterra)', 'NumberTitle', 'off');
+    sgtitle('Análisis del Modelo de Lotka-Volterra con Métodos Numéricos');
+
+    % --- Gráfico 1: Dinámica de Poblaciones vs. Tiempo ---
+    % Este gráfico muestra cómo las poblaciones de presas y depredadores
+    % oscilan de forma periódica y desfasada.
+    subplot(2, 1, 1);
+    plot(t, X_rk4(1, :), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Presas (x)');
+    hold on; % Permite graficar la segunda línea en el mismo eje.
+    plot(t, X_rk4(2, :), 'r-', 'LineWidth', 1.5, 'DisplayName', 'Depredadores (y)');
+    title('Dinámica de Poblaciones a lo Largo del Tiempo (Solución RK4)');
+    xlabel('Tiempo');
+    ylabel('Número de Individuos');
+    legend('show'); % Muestra las etiquetas definidas en 'DisplayName'.
+    grid on;
+    hold off;
+
+    % --- Gráfico 2: Diagrama de Fase (Depredadores vs. Presas) ---
+    % Esta es la visualización más importante para sistemas dinámicos.
+    % Muestra la relación entre las dos poblaciones, independientemente del tiempo.
+    % La trayectoria cerrada indica un ciclo estable.
+    subplot(2, 1, 2);
+    plot(X_heun(1, :), X_heun(2, :), 'g--', 'DisplayName', 'Trayectoria Heun');
+    hold on;
+    % Se grafica la solución de RK4 con una línea más gruesa, considerándola
+    % como la referencia más precisa de la trayectoria "real".
+    plot(X_rk4(1, :), X_rk4(2, :), 'k-', 'LineWidth', 1.5, 'DisplayName', 'Trayectoria RK4');
+    % Se marca el punto de inicio para ver de dónde parte el ciclo.
+    plot(X0(1), X0(2), 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r', 'DisplayName', 'Punto de Inicio');
+    title('Diagrama de Fase (Depredadores vs. Presas)');
+    xlabel('Población de Presas (x)');
+    ylabel('Población de Depredadores (y)');
+    legend('show');
+    grid on;
+    hold off;
+end
