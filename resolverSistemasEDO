@@ -1,0 +1,184 @@
+% =========================================================================
+% FUNCIÓN PARA RESOLVER SISTEMAS DE EDOs LINEALES 2x2
+% =========================================================================
+% DESCRIPCIÓN:
+% Esta función resuelve un sistema de Ecuaciones Diferenciales Ordinarias
+% (EDOs) lineales de la forma X' = A*X, donde X es un vector de estado y
+% A es una matriz de coeficientes constantes.
+%
+% El enfoque es una generalización directa de los métodos para una sola EDO.
+% Las variables de estado (x, y) se agrupan en un vector X = [x; y]. Los
+% métodos de Heun y RK4 se aplican de forma vectorial, donde los cálculos de
+% las pendientes (k1, k2, etc.) y las actualizaciones de estado operan sobre
+% vectores en lugar de escalares.
+%
+% La función realiza un análisis de convergencia detallado, generando tablas
+% y gráficos de error por separado para cada una de las variables de estado
+% (x(t) e y(t)), permitiendo una validación completa de la solución.
+%
+% PARÁMETROS DE ENTRADA: Ninguno.
+% PARÁMETROS DE SALIDA: Ninguno (genera tablas en consola y dos figuras).
+% =========================================================================
+function resolverSistemasEDO()
+    % --- 1. DEFINICIÓN DEL PROBLEMA DEL SISTEMA DE EDOs ---
+    % El sistema se define por la matriz de coeficientes A.
+    % x' = 1*x - 2*y
+    % y' = 4*x - 3*y
+    A = [1, -2; 4, -3];
+    
+    % La función F(t, X) toma el tiempo 't' (para generalidad) y el vector de
+    % estado X = [x; y] y devuelve el vector de derivadas X' = [x'; y'].
+    % La operación clave aquí es la multiplicación matriz-vector.
+    F = @(t, X) A * X;
+
+    % Soluciones analíticas para cada componente del sistema.
+    % Se usan para calcular el error exacto de los métodos numéricos.
+    x_analitica_func = @(t) exp(-t) .* cos(2*t);
+    y_analitica_func = @(t) exp(-t) .* (cos(2*t) + sin(2*t));
+
+    % Intervalo de tiempo [t0, tf] y vector de condiciones iniciales X(0) = [x(0); y(0)].
+    t0 = 0;
+    tf = 10; % Se elige un tiempo final largo para observar el comportamiento de oscilación amortiguada.
+    X0 = [1; 1];
+
+    % --- 2. ANÁLISIS DE CONVERGENCIA ---
+    pasos_n = [20, 50, 100, 200, 500];
+    % Se crean dos matrices de resultados separadas para analizar la convergencia
+    % de cada variable de estado de forma independiente.
+    resultados_x = zeros(length(pasos_n), 5);
+    resultados_y = zeros(length(pasos_n), 5);
+
+    fprintf('====================================================\n');
+    fprintf('  ANÁLISIS DE CONVERGENCIA PARA SISTEMA DE EDOs 2x2\n');
+    fprintf('====================================================\n');
+
+    % Bucle principal que itera sobre los diferentes números de pasos.
+    for k = 1:length(pasos_n)
+        n = pasos_n(k);
+        h = (tf - t0) / n;
+        t = t0:h:tf;
+
+        % Inicialización de las matrices de solución.
+        % Cada columna representa el vector de estado X = [x; y] en un punto del tiempo.
+        % Dimensiones: 2 filas (para x, y) x (n+1) columnas (para cada paso de tiempo).
+        X_heun = zeros(2, n+1);
+        X_rk4 = zeros(2, n+1);
+        X_heun(:, 1) = X0; % La primera columna es el vector de condición inicial.
+        X_rk4(:, 1) = X0;
+
+        % --- 2.1. Método de Heun para Sistemas ---
+        % La implementación es idéntica en estructura al caso escalar. La
+        % diferencia fundamental es que X, X_pred, k1 y k2 son vectores [2x1].
+        for i = 1:n
+            k1 = F(t(i), X_heun(:, i));
+            X_pred = X_heun(:, i) + h * k1;
+            k2 = F(t(i+1), X_pred);
+            X_heun(:, i+1) = X_heun(:, i) + (h/2) * (k1 + k2);
+        end
+
+        % --- 2.2. Método RK4 para Sistemas ---
+        % Al igual que Heun, la fórmula de RK4 se generaliza directamente
+        % al ámbito vectorial, donde k1, k2, k3, k4 son vectores de pendientes.
+        for i = 1:n
+            k1 = F(t(i), X_rk4(:, i));
+            k2 = F(t(i) + h/2, X_rk4(:, i) + (h/2)*k1);
+            k3 = F(t(i) + h/2, X_rk4(:, i) + (h/2)*k2);
+            k4 = F(t(i) + h, X_rk4(:, i) + h*k3);
+            X_rk4(:, i+1) = X_rk4(:, i) + (h/6) * (k1 + 2*k2 + 2*k3 + k4);
+        end
+
+        % --- 2.3. Almacenamiento y Cálculo de Errores por Componente ---
+        % Análisis para la primera componente del sistema: x(t)
+        x_analitico_final = x_analitica_func(tf);
+        x_heun_final = X_heun(1, end); % Se extrae el último valor de la primera fila.
+        x_rk4_final = X_rk4(1, end);
+        resultados_x(k, :) = [h, x_heun_final, abs(x_analitico_final - x_heun_final), ...
+                              x_rk4_final, abs(x_analitico_final - x_rk4_final)];
+        
+        % Análisis para la segunda componente del sistema: y(t)
+        y_analitico_final = y_analitica_func(tf);
+        y_heun_final = X_heun(2, end); % Se extrae el último valor de la segunda fila.
+        y_rk4_final = X_rk4(2, end);
+        resultados_y(k, :) = [h, y_heun_final, abs(y_analitico_final - y_heun_final), ...
+                              y_rk4_final, abs(y_analitico_final - y_rk4_final)];
+    end
+    
+    % --- 3. PRESENTACIÓN DE LAS TABLAS DE RESULTADOS ---
+    % Se generan dos tablas separadas para una presentación clara de los errores
+    % de cada variable del sistema.
+    
+    % Tabla para la variable x(t)
+    fprintf('\n--- Tabla de Resultados para x(t) en t=%.4f ---\n', tf);
+    fprintf('Valor Analítico: %.6f\n\n', x_analitica_func(tf));
+    fprintf('%-12s %-18s %-18s %-18s %-18s\n', ...
+            'Paso (h)', 'Heun Final', 'Error Abs (Heun)', 'RK4 Final', 'Error Abs (RK4)');
+    fprintf([repmat('-', 1, 85) '\n']);
+    for k = 1:length(pasos_n)
+        fprintf('%-12.6f %-18.6f %-18.6e %-18.6f %-18.6e\n', ...
+                resultados_x(k, 1), resultados_x(k, 2), resultados_x(k, 3), ...
+                resultados_x(k, 4), resultados_x(k, 5));
+    end
+
+    % Tabla para la variable y(t)
+    fprintf('\n--- Tabla de Resultados para y(t) en t=%.4f ---\n', tf);
+    fprintf('Valor Analítico: %.6f\n\n', y_analitica_func(tf));
+    fprintf('%-12s %-18s %-18s %-18s %-18s\n', ...
+            'Paso (h)', 'Heun Final', 'Error Abs (Heun)', 'RK4 Final', 'Error Abs (RK4)');
+    fprintf([repmat('-', 1, 85) '\n']);
+    for k = 1:length(pasos_n)
+        fprintf('%-12.6f %-18.6f %-18.6e %-18.6f %-18.6e\n', ...
+                resultados_y(k, 1), resultados_y(k, 2), resultados_y(k, 3), ...
+                resultados_y(k, 4), resultados_y(k, 5));
+    end
+    
+    % --- 4. VISUALIZACIÓN DE RESULTADOS POR COMPONENTE ---
+    % Se usan los resultados de la última iteración (n=500), la más precisa.
+    x_analitica = x_analitica_func(t);
+    y_analitica = y_analitica_func(t);
+
+    % ===== FIGURA 1: ANÁLISIS DE LA COMPONENTE x(t) =====
+    % Se dedica una figura completa a la variable x(t) para un análisis claro.
+    figure('Name', 'Análisis de la Componente x(t)', 'NumberTitle', 'off');
+    sgtitle('Comparación de Soluciones para la Componente x(t)');
+
+    % Subgráfico 1: Heun para x(t)
+    subplot(3, 1, 1);
+    plot(t, X_heun(1, :), 'b--o', 'MarkerSize', 3); % Se extrae la primera fila de datos.
+    title(['Solución x(t) con Método de Heun (n=' num2str(pasos_n(end)) ')']);
+    ylabel('x(t)'); grid on; legend('Heun');
+
+    % Subgráfico 2: RK4 para x(t)
+    subplot(3, 1, 2);
+    plot(t, X_rk4(1, :), 'r--s', 'MarkerSize', 3); % Se extrae la primera fila de datos.
+    title(['Solución x(t) con Método RK4 (n=' num2str(pasos_n(end)) ')']);
+    ylabel('x(t)'); grid on; legend('RK4');
+
+    % Subgráfico 3: Analítica para x(t)
+    subplot(3, 1, 3);
+    plot(t, x_analitica, 'g-', 'LineWidth', 2);
+    title('Solución Analítica Exacta para x(t)');
+    xlabel('t'); ylabel('x(t)'); grid on; legend('Analítica');
+
+    % ===== FIGURA 2: ANÁLISIS DE LA COMPONENTE y(t) =====
+    % Se dedica una segunda figura a la variable y(t).
+    figure('Name', 'Análisis de la Componente y(t)', 'NumberTitle', 'off');
+    sgtitle('Comparación de Soluciones para la Componente y(t)');
+
+    % Subgráfico 1: Heun para y(t)
+    subplot(3, 1, 1);
+    plot(t, X_heun(2, :), 'b--o', 'MarkerSize', 3); % Se extrae la segunda fila de datos.
+    title(['Solución y(t) con Método de Heun (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(t)'); grid on; legend('Heun');
+
+    % Subgráfico 2: RK4 para y(t)
+    subplot(3, 1, 2);
+    plot(t, X_rk4(2, :), 'r--s', 'MarkerSize', 3); % Se extrae la segunda fila de datos.
+    title(['Solución y(t) con Método RK4 (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(t)'); grid on; legend('RK4');
+
+    % Subgráfico 3: Analítica para y(t)
+    subplot(3, 1, 3);
+    plot(t, y_analitica, 'g-', 'LineWidth', 2);
+    title('Solución Analítica Exacta para y(t)');
+    xlabel('t'); ylabel('y(t)'); grid on; legend('Analítica');
+end
