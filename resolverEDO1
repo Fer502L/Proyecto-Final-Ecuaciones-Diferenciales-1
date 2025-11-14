@@ -1,0 +1,158 @@
+% =========================================================================
+% FUNCIÓN PARA RESOLVER EDO DE PRIMER ORDEN
+% =========================================================================
+% DESCRIPCIÓN:
+% Esta función resuelve una Ecuación Diferencial Ordinaria (EDO) de primer
+% orden, y' = f(x,y), utilizando dos métodos numéricos:
+%   1. Método de Heun (Predictor-Corrector de 2do orden).
+%   2. Método de Runge-Kutta de 4to orden (RK4).
+%
+% La función realiza un análisis de convergencia al resolver el problema
+% con un número creciente de pasos (n), y presenta los resultados en una
+% tabla que muestra cómo el error absoluto disminuye a medida que el
+% tamaño de paso (h) se reduce. Finalmente, visualiza las soluciones
+% numéricas junto con la solución analítica exacta para una comparación
+% cualitativa.
+%
+% PARÁMETROS DE ENTRADA: Ninguno.
+% PARÁMETROS DE SALIDA: Ninguno (genera una tabla en consola y una figura).
+% =========================================================================
+function resolverEDO1()
+    % --- 1. DEFINICIÓN DEL PROBLEMA ESPECÍFICO ---
+    % Se define la EDO a resolver: y' = 2x*csc(x) - y*cot(x)
+    % Se utiliza un "function handle" (@) para definir f(x,y) de forma
+    % eficiente, permitiendo que sea llamada repetidamente en los bucles.
+    f = @(x, y) 2*x.*csc(x) - y.*cot(x);
+
+    % Se define la solución analítica exacta del problema.
+    % Esta función es crucial para calcular el error absoluto y validar la
+    % precisión de los métodos numéricos implementados.
+    y_analitica_func = @(x) x.^2 .* csc(x);
+
+    % Definición del intervalo de integración [a, b] y la condición inicial y(a) = y0.
+    a = pi/2;
+    % NOTA IMPORTANTE: La función csc(x) = 1/sin(x) tiene una singularidad
+    % (tiende a infinito) en x = pi. Para evitar errores numéricos (división por
+    % cero), el intervalo de integración se detiene un poco antes de pi.
+    b = pi - 0.01; 
+    y0 = (pi^2)/4; % Valor inicial y(pi/2) = ((pi/2)^2)*csc(pi/2) = (pi^2/4)*1
+    
+    % --- 2. ANÁLISIS DE CONVERGENCIA ---
+    % Se define un vector con diferentes números de pasos (n).
+    % Esto permitirá analizar cómo la precisión de los métodos mejora (el error
+    % disminuye) al reducir el tamaño del paso h = (b-a)/n.
+    pasos_n = [10, 20, 50, 100, 200];
+    
+    % Se pre-aloja una matriz 'resultados' para almacenar los datos de cada
+    % iteración. Esto es una buena práctica en MATLAB para mejorar el rendimiento.
+    % Columnas: [h, Resultado Heun, Error Heun, Resultado RK4, Error RK4]
+    resultados = zeros(length(pasos_n), 5); 
+
+    % Encabezado para la tabla de resultados en la consola.
+    fprintf('====================================================\n');
+    fprintf('  ANÁLISIS DE CONVERGENCIA PARA EDO DE PRIMER ORDEN\n');
+    fprintf('====================================================\n');
+
+    % Bucle principal que itera sobre los diferentes valores de 'n'
+    for k = 1:length(pasos_n)
+        n = pasos_n(k);          % Número de pasos para esta iteración.
+        h = (b - a) / n;         % Cálculo del tamaño de paso.
+        x = a:h:b;               % Creación del vector de puntos de x en el dominio.
+
+        % Inicialización de los vectores de solución para la iteración actual.
+        % Se llenan con ceros y se establece la condición inicial en la primera posición.
+        y_heun = zeros(1, n+1);
+        y_rk4 = zeros(1, n+1);
+        y_heun(1) = y0;
+        y_rk4(1) = y0;
+
+        % --- 2.1. Implementación del Método de Heun ---
+        for i = 1:n
+            % Predictor: Estima la pendiente al inicio del intervalo (k1).
+            k1 = f(x(i), y_heun(i));
+            % Predice el valor de y en el siguiente punto usando el paso de Euler.
+            y_pred = y_heun(i) + h * k1;
+            % Corrector: Estima la pendiente al final del intervalo (k2) usando y_pred.
+            k2 = f(x(i+1), y_pred);
+            % Combina las pendientes (promedio) para obtener el valor final de y.
+            y_heun(i+1) = y_heun(i) + (h/2) * (k1 + k2);
+        end
+
+        % --- 2.2. Implementación del Método de Runge-Kutta de 4to Orden (RK4) ---
+        for i = 1:n
+            % RK4 calcula un promedio ponderado de cuatro pendientes en el intervalo.
+            k1 = f(x(i), y_rk4(i));                                % Pendiente al inicio.
+            k2 = f(x(i) + h/2, y_rk4(i) + (h/2)*k1);               % Pendiente en el punto medio (usando k1).
+            k3 = f(x(i) + h/2, y_rk4(i) + (h/2)*k2);               % Pendiente en el punto medio (usando k2).
+            k4 = f(x(i) + h, y_rk4(i) + h*k3);                     % Pendiente al final (usando k3).
+            % El siguiente valor de 'y' es una suma ponderada de estas pendientes.
+            y_rk4(i+1) = y_rk4(i) + (h/6) * (k1 + 2*k2 + 2*k3 + k4);
+        end
+        
+        % --- 2.3. Almacenamiento y Cálculo de Errores ---
+        y_analitica_final = y_analitica_func(b); % Valor exacto al final del intervalo.
+        y_heun_final = y_heun(end);              % Valor numérico de Heun al final.
+        y_rk4_final = y_rk4(end);                % Valor numérico de RK4 al final.
+        
+        % Cálculo del error absoluto para cada método.
+        error_heun = abs(y_analitica_final - y_heun_final);
+        error_rk4 = abs(y_analitica_final - y_rk4_final);
+        
+        % Se guarda la fila de datos en la matriz de resultados.
+        resultados(k, :) = [h, y_heun_final, error_heun, y_rk4_final, error_rk4];
+    end
+    
+    % --- 3. PRESENTACIÓN DE LA TABLA DE RESULTADOS ---
+    % Muestra el valor analítico de referencia.
+    fprintf('Valor Analítico Exacto en x=%.4f: %.6f\n\n', b, y_analitica_func(b));
+    % Imprime el encabezado de la tabla formateada.
+    fprintf('%-12s %-18s %-18s %-18s %-18s\n', ...
+            'Paso (h)', 'Heun Final', 'Error Abs (Heun)', 'RK4 Final', 'Error Abs (RK4)');
+    fprintf([repmat('-', 1, 85) '\n']); % Dibuja una línea separadora.
+    % Bucle para imprimir cada fila de la matriz 'resultados' con el formato adecuado.
+    % '%-12.6f' -> flotante alineado a la izq., 12 chars, 6 decimales.
+    % '%-18.6e' -> notación científica alineada a la izq. para errores pequeños.
+    for k = 1:length(pasos_n)
+        fprintf('%-12.6f %-18.6f %-18.6e %-18.6f %-18.6e\n', ...
+                resultados(k, 1), resultados(k, 2), resultados(k, 3), ...
+                resultados(k, 4), resultados(k, 5));
+    end
+
+    % --- 4. VISUALIZACIÓN DE RESULTADOS ---
+    % Se prepara la gráfica utilizando los resultados de la última iteración
+    % (n=200), que es la más precisa y tiene más puntos.
+    y_analitica = y_analitica_func(x); % El vector 'x' corresponde al último bucle.
+
+    % Se crea una nueva figura para las gráficas.
+    figure('Name', 'Soluciones para EDO de Primer Orden', 'NumberTitle', 'off');
+    % Se añade un título general a toda la figura.
+    sgtitle('Comparación de Soluciones para EDO de Primer Orden (y'' = 2x*csc(x) - y*cot(x))'); 
+
+    % Se utiliza 'subplot' para mostrar las tres gráficas en una sola ventana,
+    % facilitando la comparación visual.
+    
+    % Subgráfico 1: Método de Heun
+    subplot(3, 1, 1);
+    plot(x, y_heun, 'b-o', 'MarkerSize', 3, 'LineWidth', 1.5);
+    title(['Solución con Método de Heun (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(x)');
+    grid on;
+    legend('Heun', 'Location', 'northwest');
+
+    % Subgráfico 2: Método RK4
+    subplot(3, 1, 2);
+    plot(x, y_rk4, 'r-s', 'MarkerSize', 3, 'LineWidth', 1.5);
+    title(['Solución con Método RK4 (n=' num2str(pasos_n(end)) ')']);
+    ylabel('y(x)');
+    grid on;
+    legend('RK4', 'Location', 'northwest');
+
+    % Subgráfico 3: Solución Analítica
+    subplot(3, 1, 3);
+    plot(x, y_analitica, 'g-', 'LineWidth', 2);
+    title('Solución Analítica Exacta');
+    xlabel('x');
+    ylabel('y(x)');
+    grid on;
+    legend('Analítica', 'Location', 'northwest');
+end
