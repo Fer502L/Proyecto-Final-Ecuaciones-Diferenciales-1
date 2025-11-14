@@ -1,4 +1,4 @@
-¡HOla JP! Este proyecto se corre en MATLAB.
+¡Hola JP! Este proyecto se corre en MATLAB.
 Dentro del código, el main desplega el menú pero solamente para las ecuaciones de primer, 
 segundo y lineales. El código de Lotka-Volterra se corre por aparte. 
 Para poder correr el código es necesario crear una carpeta en MATLAB, 
