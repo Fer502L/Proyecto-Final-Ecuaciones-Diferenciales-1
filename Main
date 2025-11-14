@@ -1,0 +1,57 @@
+% =========================================================================
+% SCRIPT PRINCIPAL: SOLUCIONADOR NUMÉRICO DE ECUACIONES DIFERENCIALES
+% =========================================================================
+% DESCRIPCIÓN:
+% Este script actúa como el controlador principal ("Main") del proyecto.
+% Su función es limpiar el entorno de trabajo y ofrecer al usuario una
+% interfaz de menú para seleccionar entre tres categorías de problemas:
+%   1. EDO de Primer Orden.
+%   2. EDO de Segundo Orden.
+%   3. Sistemas de EDOs Lineales.
+%
+% Dependiendo de la elección, el script invoca a funciones externas 
+% (modularidad) para realizar los cálculos específicos mediante los 
+% métodos de Heun y Runge-Kutta de 4to orden (RK4).
+% =========================================================================
+
+% --- 1. INICIALIZACIÓN DEL ENTORNO ---
+clc;        % Limpia la ventana de comandos para una salida ordenada.
+clear all;  % Elimina todas las variables del workspace para evitar conflictos con datos previos.
+close all;  % Cierra todas las ventanas de gráficos abiertas anteriormente.
+
+% --- 2. INTERFAZ DE USUARIO (MENÚ DE SELECCIÓN) ---
+% Se utiliza la función 'menu' para crear una ventana de diálogo gráfica.
+% La selección del usuario se almacena como un entero (1, 2 o 3) en la variable 'opcion'.
+opcion = menu('Seleccione el tipo de problema a resolver:', ...
+              '1. EDO de Primer Orden', ...
+              '2. EDO de Segundo Orden', ...
+              '3. Sistema de EDOs Lineales 2x2');
+
+% --- 3. CONTROL DE FLUJO (LOGICA DE DECISIÓN) ---
+% Se utiliza una estructura 'switch' para dirigir el programa hacia la
+% función correspondiente según la elección del usuario. Esto mantiene el
+% código principal limpio y modular.
+
+switch opcion
+    case 1
+        % OPCIÓN 1: EDO DE PRIMER ORDEN
+        % Llama a la función dedicada a resolver ecuaciones de la forma dy/dt = f(t,y).
+        fprintf('Iniciando módulo para EDO de 1er Orden...\n');
+        resolverEDO1();
+        
+    case 2
+        % OPCIÓN 2: EDO DE SEGUNDO ORDEN
+        % Llama a la función que reduce la EDO de 2do orden a un sistema y la resuelve.
+        fprintf('Iniciando módulo para EDO de 2do Orden...\n');
+        resolverEDO2();
+        
+    case 3
+        % OPCIÓN 3: SISTEMA DE EDOs
+        % Llama a la función para resolver sistemas de ecuaciones acopladas.
+        fprintf('Iniciando módulo para Sistemas de EDOs...\n');
+        resolverSistemasEDO();
+    otherwise
+        % MANEJO DE EXCEPCIONES
+        % Se ejecuta si el usuario cierra la ventana del menú sin seleccionar nada.
+        disp('Operación cancelada o ninguna opción seleccionada.');
+end
